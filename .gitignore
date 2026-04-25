@@ -1,0 +1,33 @@
+# Build artefacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Distribution
+.pypi-token

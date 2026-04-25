@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calcnook"
+version = "0.1.0"
+description = "The personal finance brain. 22 calculations across 7 countries + Sharia-compliant module. Used by humans, websites, and AI agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Aditya Sharma", email = "wickedrita@gmail.com" }]
+keywords = [
+    "finance", "calculator", "personal-finance", "sip", "emi", "mortgage",
+    "retirement", "tax", "zakat", "islamic-finance", "sharia",
+    "compound-interest", "investment", "loan", "bmi", "calcnook",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "build>=1", "twine>=5"]
+
+[project.urls]
+Homepage = "https://calcnook.com"
+Repository = "https://github.com/Declan142/calcnook-engine"
+Issues = "https://github.com/Declan142/calcnook-engine/issues"
+Changelog = "https://github.com/Declan142/calcnook-engine/blob/master/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+calcnook = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+source = ["src/calcnook"]
+branch = true
