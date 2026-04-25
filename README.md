@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/pypi/pyversions/calcnook.svg)](https://pypi.org/project/calcnook/)
 
-22 deterministic financial calculations. 7 countries. Conventional and Sharia-compliant. Zero LLM dependency.
+24 deterministic financial calculations. 7 countries. Conventional and Sharia-compliant. Zero LLM dependency.
 
 ```bash
 pip install calcnook
@@ -65,14 +65,14 @@ print(ae.gratuity_aed)
 - `hajj_savings` — target savings for pilgrimage
 - `halal_screen` — Sharia compliance check for stocks
 
-### Countries
-- **US** — federal income tax, state stub, 401(k), IRA, FICA
-- **UK** — income tax, National Insurance, ISA
-- **CA** — federal+provincial tax, RRSP, TFSA
-- **AU** — income tax, superannuation, HECS
-- **AE** (UAE) — End of Service Gratuity, VAT 5%, real estate transfer
-- **SA** (Saudi Arabia) — EOSG, VAT 15%, Zakat (citizens), expat income tax
-- **IN** (India) — income tax slabs, HRA, EPF, NPS, 80C, electricity bills
+### Countries (12 modules, 7 countries)
+- **US** — federal income tax 2026, traditional 401(k) + Roth IRA with phase-out
+- **UK** — income tax + National Insurance with personal-allowance taper above £100k
+- **CA** — federal income tax 2026 (provincial stub TODO)
+- **AU** — income tax + Medicare levy + HECS-HELP (full 19-band ATO sliding scale)
+- **AE** (UAE) — End of Service Gratuity (Decree-Law 33/2021), VAT 5%
+- **SA** (Saudi Arabia) — EOSG (Article 84-87, with resignation tier scaling), VAT 15%, citizen Zakat estimator (ZATCA)
+- **India** — income tax new regime FY 2025-26 with 87A rebate, electricity bill slab calculator with BESCOM/MSEB/BSES presets
 
 ## For AI agents
 
