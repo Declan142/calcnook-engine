@@ -132,7 +132,7 @@ def calculate(
     Example:
         >>> r = calculate(60_000, "single")
         >>> round(r.tax_owed, 2)
-        5547.0
+        5161.5
     """
     if income < 0:
         raise ValueError("income must be >= 0")

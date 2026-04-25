@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calcnook"
-version = "0.1.0"
+version = "0.1.1"
 description = "The personal finance brain. 22 calculations across 7 countries + Sharia-compliant module. Used by humans, websites, and AI agents."
 readme = "README.md"
 requires-python = ">=3.10"

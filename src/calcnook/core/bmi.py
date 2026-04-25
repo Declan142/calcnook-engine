@@ -139,7 +139,7 @@ def bmr(
     Example:
         >>> r = bmr(70, 175, 30, "male")
         >>> round(r.bmr_kcal, 2)
-        1673.75
+        1648.75
     """
     if weight_kg <= 0:
         raise ValueError("weight_kg must be > 0")
