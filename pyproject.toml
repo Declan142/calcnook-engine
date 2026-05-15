@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calcnook"
-version = "0.1.1"
-description = "The personal finance brain. 22 calculations across 7 countries + Sharia-compliant module. Used by humans, websites, and AI agents."
+version = "0.2.0"
+description = "The personal finance brain. 30 calculations across 7 countries + Sharia-compliant module + deep India coverage (PF/EPF, Gratuity, Capital Gains, Advance Tax, GST, HRA). Used by humans, websites, and AI agents."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
