@@ -1,5 +1,13 @@
 # RESUME — calcnook-engine
 
+## Local rates-correctness patch, 2026-07-11
+
+- Branch: `codex/cn-rates-fix-0711`, local only, not published or pushed.
+- Synchronized Australia FY 2026/27, US 401(k) 2026, US Roth IRA 2026, and Canada federal 2026 with the web TypeScript engine.
+- Added locked Python tests for every updated statutory constant, age boundary, BPA taper, HECS threshold, and hand-computed example.
+- Verification: 364 Python tests passed and direct TypeScript/Python output parity passed.
+- The web repo report is `_reports/rates-fix-applied-2026-07-11.md`.
+
 **30-second pickup:** Open-source Python package implementing 24 deterministic financial calculations across 7 countries + Islamic finance module. The math layer for the calcnook.com global relaunch. **v0.1.1 LIVE on PyPI** as `pip install calcnook`.
 
 ## Live status

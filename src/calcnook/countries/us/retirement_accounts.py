@@ -1,9 +1,8 @@
 """US retirement account calculators for 2026.
 
 Covers 401(k) traditional pre-tax and Roth IRA with MAGI phase-out.
-Contribution limits projected from 2025 + inflation adjustment.
 
-Reference: IRS Notice 2025-xx (projected 2026 limits).
+Reference: IRS Notice 2025-67 (2026 limits).
 """
 
 from __future__ import annotations
@@ -11,21 +10,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # ---------------------------------------------------------------------------
-# 2026 projected contribution limits
+# 2026 contribution limits
 # ---------------------------------------------------------------------------
-_401K_LIMIT_UNDER_50 = 24_000
-_401K_LIMIT_50_PLUS = 32_000        # includes $8K catch-up
-_401K_TOTAL_LIMIT = 70_000          # combined employee + employer
-_ROTH_LIMIT_UNDER_50 = 7_000
-_ROTH_LIMIT_50_PLUS = 8_000         # $1K catch-up for 50+
+_401K_ELECTIVE_DEFERRAL_LIMIT = 24_500
+_401K_CATCH_UP_50_PLUS = 8_000
+_401K_CATCH_UP_60_TO_63 = 11_250
+_401K_ANNUAL_ADDITIONS_LIMIT = 72_000
+_401K_ANNUAL_COMPENSATION_LIMIT = 360_000
+_ROTH_LIMIT_UNDER_50 = 7_500
+_ROTH_LIMIT_50_PLUS = 8_600         # includes $1,100 catch-up for 50+
 
-# Roth IRA MAGI phase-out ranges 2026 (projected from 2025 + ~3%)
+# Roth IRA MAGI phase-out ranges for 2026
 _ROTH_PHASEOUT = {
-    "single": (150_000, 165_000),
-    "married_jointly": (236_000, 246_000),
+    "single": (153_000, 168_000),
+    "married_jointly": (242_000, 252_000),
     "married_separately": (0, 10_000),       # always near-full phase-out
-    "head_of_household": (150_000, 165_000),
+    "head_of_household": (153_000, 168_000),
 }
+
+
+def _401k_catch_up_limit(age: int) -> int:
+    if 60 <= age <= 63:
+        return _401K_CATCH_UP_60_TO_63
+    if age >= 50:
+        return _401K_CATCH_UP_50_PLUS
+    return 0
 
 
 @dataclass(frozen=True)
@@ -35,7 +44,12 @@ class Traditional401kResult:
     employer_contribution: float
     total_contribution: float
     employee_limit: float
+    elective_deferral_limit: float
+    catch_up_limit: float
+    annual_additions_limit: float
     total_limit: float
+    compensation_limit: float
+    compensation_used: float
     is_employee_maxed: bool
     is_total_maxed: bool
     tax_savings_now: float          # estimated immediate tax savings (marginal bracket)
@@ -48,7 +62,12 @@ class Traditional401kResult:
             "employer_contribution": round(self.employer_contribution, 2),
             "total_contribution": round(self.total_contribution, 2),
             "employee_limit": self.employee_limit,
+            "elective_deferral_limit": self.elective_deferral_limit,
+            "catch_up_limit": self.catch_up_limit,
+            "annual_additions_limit": self.annual_additions_limit,
             "total_limit": self.total_limit,
+            "compensation_limit": self.compensation_limit,
+            "compensation_used": self.compensation_used,
             "is_employee_maxed": self.is_employee_maxed,
             "is_total_maxed": self.is_total_maxed,
             "tax_savings_now": round(self.tax_savings_now, 2),
@@ -97,7 +116,8 @@ def traditional_401k(
     The contribution is capped at the employee elective deferral limit.
     Employer match is computed as ``employer_match_percent`` of salary up to
     ``employer_match_cap`` percent of salary (e.g. 50% match up to 6% of salary).
-    Combined employee + employer is capped at the §415 total limit ($70K in 2026).
+    The §415 annual-additions limit is $72,000 before catch-up contributions.
+    Employer matching considers at most $360,000 of annual compensation.
 
     Tax savings are estimated using the supplied ``marginal_tax_rate`` on the
     employee contribution (pre-tax deferral reduces W-2 income by that amount).
@@ -109,7 +129,7 @@ def traditional_401k(
             (e.g. 0.50 = 50-cent-per-dollar match).
         employer_match_cap: Employer match applies only up to this % of salary
             (e.g. 0.06 = up to 6% of salary is matched).
-        age: Employee's age — determines catch-up contribution eligibility (50+).
+        age: Employee's age; determines catch-up contribution eligibility.
         marginal_tax_rate: Estimated marginal federal rate for tax savings calc.
 
     Returns:
@@ -136,21 +156,22 @@ def traditional_401k(
     if not 0 <= marginal_tax_rate < 1:
         raise ValueError("marginal_tax_rate must be between 0 and 1")
 
-    employee_limit = _401K_LIMIT_50_PLUS if age >= 50 else _401K_LIMIT_UNDER_50
+    catch_up_limit = _401k_catch_up_limit(age)
+    employee_limit = _401K_ELECTIVE_DEFERRAL_LIMIT + catch_up_limit
+    total_limit = _401K_ANNUAL_ADDITIONS_LIMIT + catch_up_limit
+    compensation_used = min(salary, _401K_ANNUAL_COMPENSATION_LIMIT)
     employee_contrib = min(contribution, employee_limit)
 
-    # Employer match: match_pct of employee contrib, up to match_cap% of salary
-    matchable_salary = salary * employer_match_cap
-    employer_contrib = min(employee_contrib * employer_match_percent, matchable_salary * employer_match_percent)
-    # Actually: employer matches employee_match_percent on each dollar up to cap
-    # Standard interpretation: employer contributes match_pct * min(employee_contrib, match_cap * salary)
-    employer_contrib = employer_match_percent * min(employee_contrib, salary * employer_match_cap)
+    employer_contrib = employer_match_percent * min(
+        employee_contrib,
+        compensation_used * employer_match_cap,
+    )
 
     total = employee_contrib + employer_contrib
-    if total > _401K_TOTAL_LIMIT:
+    if total > total_limit:
         # Reduce employer to stay within total limit
-        employer_contrib = _401K_TOTAL_LIMIT - employee_contrib
-        total = _401K_TOTAL_LIMIT
+        employer_contrib = total_limit - employee_contrib
+        total = total_limit
 
     tax_savings = employee_contrib * marginal_tax_rate
 
@@ -159,9 +180,14 @@ def traditional_401k(
         employer_contribution=employer_contrib,
         total_contribution=total,
         employee_limit=float(employee_limit),
-        total_limit=float(_401K_TOTAL_LIMIT),
+        elective_deferral_limit=float(_401K_ELECTIVE_DEFERRAL_LIMIT),
+        catch_up_limit=float(catch_up_limit),
+        annual_additions_limit=float(_401K_ANNUAL_ADDITIONS_LIMIT),
+        total_limit=float(total_limit),
+        compensation_limit=float(_401K_ANNUAL_COMPENSATION_LIMIT),
+        compensation_used=float(compensation_used),
         is_employee_maxed=(employee_contrib >= employee_limit),
-        is_total_maxed=(total >= _401K_TOTAL_LIMIT),
+        is_total_maxed=(total >= total_limit),
         tax_savings_now=tax_savings,
         marginal_rate_used=marginal_tax_rate,
         age=age,
@@ -180,14 +206,14 @@ def roth_ira(
     pro-rata within the MAGI phase-out range. Above the phase-out upper bound,
     direct Roth IRA contributions are not allowed (phase_out_factor = 0).
 
-    MAGI phase-out ranges 2026 (projected):
-    - Single / HoH: $150,000 – $165,000
-    - Married filing jointly: $236,000 – $246,000
-    - Married filing separately: $0 – $10,000
+    MAGI phase-out ranges for 2026:
+    - Single / HoH: $153,000 to $168,000
+    - Married filing jointly: $242,000 to $252,000
+    - Married filing separately: $0 to $10,000
 
     Args:
         contribution: Desired contribution amount.
-        age: Contributor's age — determines limit ($7K under 50, $8K 50+).
+        age: Contributor's age; determines limit ($7,500 under 50, $8,600 at 50+).
         magi: Modified Adjusted Gross Income.
         filing_status: One of the four standard filing statuses.
 
@@ -198,7 +224,7 @@ def roth_ira(
         ValueError: if inputs are invalid.
 
     Example:
-        >>> r = roth_ira(7_000, 30, 157_500, "single")
+        >>> r = roth_ira(7_500, 30, 160_500, "single")
         >>> round(r.phase_out_factor, 4)
         0.5
     """

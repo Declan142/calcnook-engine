@@ -1,13 +1,7 @@
-"""Australia income tax + Medicare Levy + HECS-HELP repayment for 2025/26.
+"""Australia income tax + Medicare Levy + HECS-HELP repayment for FY 2026/27.
 
-Reported as 2026 assessment year per project convention.
-
-HECS simplification: the full ATO sliding-scale compulsory repayment schedule
-has ~18 thresholds. We implement the main bands used in practice. This is
-documented as a simplification — callers should verify with ato.gov.au for
-official figures.
-
-Reference: ATO 2025-26 tax rates and HECS compulsory repayment thresholds.
+Reference: Australian Government and ATO FY 2026/27 resident tax rates and
+study and training loan compulsory repayment thresholds.
 """
 
 from __future__ import annotations
@@ -17,16 +11,15 @@ from typing import List
 
 
 # ---------------------------------------------------------------------------
-# 2025/26 AU income tax brackets (lower_inclusive, upper_inclusive, base_tax, rate)
-# Applied on whole income, not income above a threshold.
+# FY 2026/27 AU income tax brackets
 # ---------------------------------------------------------------------------
 # Bracket structure: (lower_bound, upper_bound, fixed_tax_at_lower, marginal_rate)
 _BRACKETS = [
     (0, 18_200, 0, 0.0),
-    (18_201, 45_000, 0, 0.16),
-    (45_001, 135_000, 4_288, 0.30),
-    (135_001, 190_000, 31_288, 0.37),
-    (190_001, float("inf"), 51_638, 0.45),
+    (18_201, 45_000, 0, 0.15),
+    (45_001, 135_000, 4_020, 0.30),
+    (135_001, 190_000, 31_020, 0.37),
+    (190_001, float("inf"), 51_370, 0.45),
 ]
 
 # Medicare Levy
@@ -34,29 +27,14 @@ MEDICARE_RATE = 0.02
 MEDICARE_PHASE_IN_LOWER = 26_000.0  # below this: no Medicare
 MEDICARE_PHASE_IN_UPPER = 32_500.0  # fully phased in above this (approx)
 
-# HECS-HELP repayment thresholds 2025/26 (simplified progressive bands)
-# Format: (upper_threshold, repayment_rate)
-_HECS_BANDS = [
-    (54_434, 0.000),
-    (62_850, 0.010),
-    (66_620, 0.020),
-    (70_618, 0.025),
-    (74_855, 0.030),
-    (79_347, 0.035),
-    (84_108, 0.040),
-    (88_756, 0.045),
-    (93_669, 0.050),
-    (99_069, 0.055),
-    (104_872, 0.060),
-    (111_142, 0.065),
-    (117_894, 0.070),
-    (124_950, 0.075),
-    (132_469, 0.080),
-    (140_417, 0.085),
-    (148_845, 0.090),
-    (157_775, 0.095),
-    (float("inf"), 0.100),
-]
+# HECS-HELP and other study/training loan thresholds for FY 2026/27.
+HECS_FIRST_THRESHOLD = 69_528
+HECS_SECOND_THRESHOLD = 129_717
+HECS_THIRD_THRESHOLD = 186_050
+HECS_FIRST_RATE = 0.15
+HECS_SECOND_BASE = 9_028
+HECS_SECOND_RATE = 0.17
+HECS_TOP_RATE = 0.10
 
 
 @dataclass(frozen=True)
@@ -106,19 +84,19 @@ class AUIncomeTaxResult:
 def calculate(
     income: float,
     has_hecs_debt: bool = False,
-    year: int = 2026,
+    year: int = 2027,
 ) -> AUIncomeTaxResult:
     """Compute Australian income tax, Medicare Levy, and optional HECS-HELP repayment.
 
-    Uses the Stage 3 tax cuts brackets effective from 1 July 2024 (2024-25 and
-    2025-26 financial years). The calculation does NOT include Low Income Tax
+    Uses the resident tax brackets effective from 1 July 2026 for FY 2026/27.
+    The calculation does NOT include Low Income Tax
     Offset (LITO), Low and Middle Income Tax Offset (LMITO — abolished), or
-    other offsets. Call ATO tax calculator for the full offset picture.
+    other offsets. Call the ATO tax calculator for the full offset picture.
 
     HECS-HELP note: compulsory repayment is based on your Repayment Income
     (broadly, taxable income + reportable fringe benefits + total net investment
-    losses). We use gross income as an approximation. The 18-step ATO sliding
-    scale is implemented in simplified form — see module constants for thresholds.
+    losses). We use gross income as an approximation. The FY 2026/27 marginal
+    schedule is implemented using the thresholds above.
 
     Medicare Levy: 2% of income with a phase-in between $26,000–$32,500 for low
     earners (full levy applies from ~$32,500).
@@ -126,7 +104,7 @@ def calculate(
     Args:
         income: Gross annual income in AUD.
         has_hecs_debt: Whether HECS-HELP compulsory repayment applies.
-        year: Only 2026 (FY 2025/26) is supported.
+        year: Only 2027 (FY 2026/27) is supported.
 
     Returns:
         AUIncomeTaxResult.
@@ -137,12 +115,12 @@ def calculate(
     Example:
         >>> r = calculate(80_000)
         >>> round(r.income_tax, 2)
-        14_288.0
+        14_520.0
     """
     if income < 0:
         raise ValueError("income must be >= 0")
-    if year != 2026:
-        raise ValueError("Only year=2026 (FY 2025/26) is available in this version")
+    if year != 2027:
+        raise ValueError("Only year=2027 (FY 2026/27) is available in this version")
 
     # Income tax via brackets
     breakdown: List[AUBracketDetail] = []
@@ -150,7 +128,8 @@ def calculate(
     for lower, upper, base, rate in _BRACKETS:
         if income < lower:
             break
-        chunk = min(income, upper if upper != float("inf") else income) - (lower - 1)
+        lower_exclusive = 0 if lower == 0 else lower - 1
+        chunk = min(income, upper if upper != float("inf") else income) - lower_exclusive
         chunk = max(0.0, chunk)
         if rate == 0.0:
             breakdown.append(AUBracketDetail(rate=0.0, income_in_bracket=chunk, tax_in_bracket=0.0))
@@ -172,10 +151,17 @@ def calculate(
     # HECS-HELP compulsory repayment
     hecs = 0.0
     if has_hecs_debt:
-        for upper, rate in _HECS_BANDS:
-            if income <= upper:
-                hecs = income * rate
-                break
+        if income <= HECS_FIRST_THRESHOLD:
+            hecs = 0.0
+        elif income <= HECS_SECOND_THRESHOLD:
+            hecs = (income - HECS_FIRST_THRESHOLD) * HECS_FIRST_RATE
+        elif income <= HECS_THIRD_THRESHOLD:
+            hecs = (
+                HECS_SECOND_BASE
+                + (income - HECS_SECOND_THRESHOLD) * HECS_SECOND_RATE
+            )
+        else:
+            hecs = income * HECS_TOP_RATE
 
     total_tax = it + ml + hecs
     effective_rate = total_tax / income if income > 0 else 0.0

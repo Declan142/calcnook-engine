@@ -1,4 +1,4 @@
-"""Tests for Australia income tax + Medicare + HECS 2025/26."""
+"""Tests for Australia income tax + Medicare + HECS FY 2026/27."""
 
 import pytest
 
@@ -9,29 +9,48 @@ def test_below_tax_free_threshold():
     r = income_tax.calculate(15_000)
     assert r.income_tax == 0.0
     assert r.medicare_levy == 0.0
+    assert r.bracket_breakdown[0].income_in_bracket == 15_000
 
 
 def test_45k_lower_bracket():
-    # 18201 to 45000: 16% on (45000-18200)=26800 → 4288
+    # 18201 to 45000: 15% on (45000 - 18200) = 26800, giving 4020
     r = income_tax.calculate(45_000)
-    assert round(r.income_tax, 2) == pytest.approx(4288.0, abs=5.0)
+    assert r.income_tax == pytest.approx(4_020.0)
+    assert r.bracket_breakdown[0].income_in_bracket == 18_200
+    assert sum(b.income_in_bracket for b in r.bracket_breakdown) == 45_000
 
 
 def test_80k_mid_bracket():
-    # 18201-45000 @ 16%: 26800 * 0.16 = 4288
-    # 45001-80000 @ 30%: 35000 * 0.30 = 10500
-    # Total = 14788
+    # 18201 to 45000: 26800 * 0.15 = 4020
+    # 45001 to 80000: 35000 * 0.30 = 10500
+    # Income tax = 14520
     r = income_tax.calculate(80_000)
-    assert round(r.income_tax, 2) == pytest.approx(14_788.0, abs=5.0)
-    # Medicare: 80000 * 2% = 1600
-    assert round(r.medicare_levy, 2) == pytest.approx(1600.0, abs=5.0)
+    assert r.income_tax == pytest.approx(14_520.0)
+    assert r.medicare_levy == pytest.approx(1_600.0)
+
+
+def test_resident_bracket_base_amounts():
+    assert income_tax.calculate(135_000).income_tax == pytest.approx(31_020.0)
+    assert income_tax.calculate(190_000).income_tax == pytest.approx(51_370.0)
+    assert income_tax.calculate(200_000).income_tax == pytest.approx(55_870.0)
 
 
 def test_hecs_applied():
     r = income_tax.calculate(80_000, has_hecs_debt=True)
-    assert r.hecs_repayment > 0
-    # 80K is in (79347, 84108) band @ 4%; 80000 * 0.04 = 3200
-    assert r.hecs_repayment == pytest.approx(80_000 * 0.04, abs=50)
+    # (80000 - 69528) * 0.15 = 1570.80
+    assert r.hecs_repayment == pytest.approx(1_570.80)
+    assert r.total_tax == pytest.approx(17_690.80)
+    assert r.take_home == pytest.approx(62_309.20)
+
+
+def test_hecs_current_marginal_thresholds():
+    assert income_tax.calculate(69_528, has_hecs_debt=True).hecs_repayment == 0
+    assert income_tax.calculate(150_000, has_hecs_debt=True).hecs_repayment == pytest.approx(
+        9_028 + (150_000 - 129_717) * 0.17
+    )
+    assert income_tax.calculate(200_000, has_hecs_debt=True).hecs_repayment == pytest.approx(
+        20_000
+    )
 
 
 def test_no_hecs():
@@ -55,11 +74,13 @@ def test_zero_income():
     r = income_tax.calculate(0)
     assert r.income_tax == 0.0
     assert r.total_tax == 0.0
+    assert r.bracket_breakdown[0].income_in_bracket == 0
 
 
 def test_to_dict():
     r = income_tax.calculate(100_000)
     d = r.to_dict()
+    assert d["year"] == 2027
     assert "income_tax" in d
     assert "medicare_levy" in d
     assert "hecs_repayment" in d
@@ -73,4 +94,4 @@ def test_negative_income():
 
 def test_invalid_year():
     with pytest.raises(ValueError, match="year"):
-        income_tax.calculate(50_000, year=2025)
+        income_tax.calculate(50_000, year=2026)

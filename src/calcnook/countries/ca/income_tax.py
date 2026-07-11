@@ -1,10 +1,9 @@
 """Canada federal income tax calculator for 2026.
 
-Brackets projected from 2025 + ~3% inflation adjustment.
 Provincial tax is accepted as a parameter stub and returns 0 pending full
 implementation (documented as TODO).
 
-Reference: CRA T4012 (projected 2026). Basic Personal Amount credit at 15%.
+Reference: CRA current-year rates and T4127 payroll deductions formulas.
 """
 
 from __future__ import annotations
@@ -14,19 +13,23 @@ from typing import List, Optional
 
 
 # ---------------------------------------------------------------------------
-# 2026 projected federal brackets (upper_bound, rate). Last entry bound = inf.
+# 2026 federal brackets (upper_bound, rate). Last entry bound = inf.
 # ---------------------------------------------------------------------------
 _FEDERAL_BRACKETS = [
-    (57_376, 0.15),
-    (114_750, 0.205),
-    (177_882, 0.26),
-    (253_414, 0.29),
+    (58_523, 0.14),
+    (117_045, 0.205),
+    (181_440, 0.26),
+    (258_482, 0.29),
     (float("inf"), 0.33),
 ]
 
-# Basic Personal Amount — generates a 15% non-refundable tax credit
-BASIC_PERSONAL_AMOUNT = 16_500.0
-BASIC_PERSONAL_CREDIT_RATE = 0.15
+# Basic Personal Amount generates a 14% non-refundable tax credit.
+BASIC_PERSONAL_AMOUNT = 16_452.0
+BASIC_PERSONAL_AMOUNT_MIN = 14_829.0
+BASIC_PERSONAL_AMOUNT_TAPER_START = 181_440.0
+BASIC_PERSONAL_AMOUNT_TAPER_END = 258_482.0
+BASIC_PERSONAL_AMOUNT_TAPER_REDUCTION = 1_623.0 / 77_042.0
+BASIC_PERSONAL_CREDIT_RATE = 0.14
 
 
 @dataclass(frozen=True)
@@ -88,9 +91,8 @@ def calculate(
 
     Federal tax uses progressive brackets on gross income (Canada does not have
     a flat standard deduction; the Basic Personal Amount is a non-refundable
-    credit at 15% rate applied against computed federal tax).
-
-    Brackets projected from 2025 + ~3% inflation adjustment.
+    credit at the 14% lowest federal rate applied against computed federal tax).
+    The BPA is reduced for income above the fourth-bracket threshold.
 
     Args:
         income: Gross annual income in CAD.
@@ -107,7 +109,7 @@ def calculate(
     Example:
         >>> r = calculate(100_000)
         >>> round(r.tax_owed, 2)
-        14869.32
+        14392.73
     """
     if income < 0:
         raise ValueError("income must be >= 0")
@@ -135,7 +137,15 @@ def calculate(
         prev = bound
 
     # Basic Personal Amount non-refundable credit
-    bpa_credit = BASIC_PERSONAL_AMOUNT * BASIC_PERSONAL_CREDIT_RATE
+    bpa = BASIC_PERSONAL_AMOUNT
+    if income >= BASIC_PERSONAL_AMOUNT_TAPER_END:
+        bpa = BASIC_PERSONAL_AMOUNT_MIN
+    elif income > BASIC_PERSONAL_AMOUNT_TAPER_START:
+        bpa -= (
+            (income - BASIC_PERSONAL_AMOUNT_TAPER_START)
+            * BASIC_PERSONAL_AMOUNT_TAPER_REDUCTION
+        )
+    bpa_credit = bpa * BASIC_PERSONAL_CREDIT_RATE
     tax_net = max(0.0, tax_gross - bpa_credit)
 
     effective_rate = tax_net / income if income > 0 else 0.0
